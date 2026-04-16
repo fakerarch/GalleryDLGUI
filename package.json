@@ -1,0 +1,74 @@
+{
+  "name": "gallery-dl-gui",
+  "version": "1.0.0",
+  "description": "A GUI frontend for gallery-dl",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:linux": "electron-builder --linux AppImage --x64",
+    "build:win": "electron-builder --win nsis portable --x64",
+    "build:all": "electron-builder --linux AppImage --win nsis portable --x64"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.gallerydl.gui",
+    "productName": "gallery-dl GUI",
+    "copyright": "Copyright © 2024",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "src/**/*",
+      "!src/**/*.map"
+    ],
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Network",
+      "executableName": "gallery-dl-gui",
+      "synopsis": "GUI frontend for gallery-dl",
+      "description": "A cross-platform graphical interface for gallery-dl that lets you download media from hundreds of supported sites.",
+      "desktop": {
+        "Name": "gallery-dl GUI",
+        "Comment": "Download media with gallery-dl",
+        "Categories": "Network;FileTransfer;",
+        "Keywords": "download;media;gallery-dl;images;videos;"
+      }
+    },
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "gallery-dl GUI",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "gallery-dl GUI",
+      "uninstallDisplayName": "gallery-dl GUI",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "include": "installer.nsh",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "gallery-dl-GUI-${version}-portable.exe"
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+  }
+}

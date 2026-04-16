@@ -1,0 +1,2632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gallery-dl GUI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0d0d10;
+    --bg2:      #13131a;
+    --bg3:      #1a1a24;
+    --bg4:      #22222f;
+    --border:   #2a2a3a;
+    --border2:  #3a3a50;
+    --text:     #e8e8f0;
+    --muted:    #6b6b88;
+    --accent:   #7c6af7;
+    --accent2:  #5b52d4;
+    --green:    #4ade80;
+    --red:      #f87171;
+    --yellow:   #fbbf24;
+    --cyan:     #22d3ee;
+    --mono:     'JetBrains Mono', monospace;
+    --sans:     'Syne', sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Title bar ── */
+  #titlebar {
+    height: 38px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    -webkit-app-region: drag;
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  #titlebar .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text);
+  }
+  #titlebar .logo svg { color: var(--accent); }
+  #titlebar .spacer { flex: 1; }
+  .winctrls {
+    display: flex;
+    gap: 4px;
+    -webkit-app-region: no-drag;
+  }
+  .winctrls button {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    transition: all 0.15s;
+  }
+  .winctrls button:hover { background: var(--bg4); color: var(--text); }
+  .winctrls button.close-btn:hover { background: #7f1d1d; color: #fca5a5; border-color: #7f1d1d; }
+
+  /* ── Layout ── */
+  #app {
+    display: flex;
+    height: calc(100vh - 38px);
+  }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 200px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .nav-item {
+    padding: 11px 16px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .nav-item:hover { color: var(--text); background: var(--bg3); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(124,106,247,0.08); }
+  .nav-item svg { flex-shrink: 0; }
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .sidebar-footer span { color: var(--green); }
+
+  /* ── Main content ── */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .page { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+  .page.active { display: flex; }
+
+  /* ── Download page ── */
+  #page-download {
+    display: none;
+    gap: 0;
+  }
+  #page-download.active { display: flex; }
+
+  .top-panel {
+    padding: 20px 24px 0;
+    flex-shrink: 0;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* URL input area */
+  .url-area {
+    position: relative;
+    margin-bottom: 16px;
+  }
+  #url-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    resize: vertical;
+    min-height: 80px;
+    max-height: 200px;
+    outline: none;
+    line-height: 1.6;
+    transition: border-color 0.15s;
+  }
+  #url-input::placeholder { color: var(--muted); }
+  #url-input:focus { border-color: var(--accent); }
+
+  /* Controls row */
+  .controls-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .control-group.grow { flex: 1; min-width: 160px; }
+
+  .dir-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  #output-dir {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #output-dir:focus { border-color: var(--accent); }
+
+  /* Preset selector */
+  #preset-select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    min-width: 160px;
+    transition: border-color 0.15s;
+  }
+  #preset-select:focus { border-color: var(--accent); }
+  #preset-select option { background: var(--bg3); }
+
+  /* Buttons */
+  .btn {
+    padding: 7px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-icon {
+    width: 32px; height: 32px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-icon:hover { background: var(--bg4); color: var(--text); }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    padding: 8px 22px;
+    font-size: 13.5px;
+  }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-danger {
+    background: rgba(248,113,113,0.12);
+    border-color: rgba(248,113,113,0.3);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: rgba(248,113,113,0.2); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+  }
+  .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+
+  /* Queue */
+  .queue-section {
+    padding: 0 24px;
+    flex-shrink: 0;
+    margin-bottom: 12px;
+  }
+  .queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  #queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .queue-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text);
+  }
+  .queue-item .q-status {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--border2);
+  }
+  .queue-item.running .q-status { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); animation: pulse 1s infinite; }
+  .queue-item.done .q-status { background: var(--green); }
+  .queue-item.error .q-status { background: var(--red); }
+  .queue-item .q-url { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .queue-item.running .q-url { color: var(--text); }
+  .queue-item .q-remove {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    padding: 0 2px; font-size: 14px; line-height: 1;
+    transition: color 0.15s;
+  }
+  .queue-item .q-remove:hover { color: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Log area */
+  .log-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 24px 20px;
+    min-height: 0;
+  }
+  .log-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  #log-output {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.65;
+    overflow-y: auto;
+    color: #aaa8c8;
+    min-height: 0;
+  }
+  #log-output .log-line { display: block; }
+  #log-output .log-stderr { color: var(--red); }
+  #log-output .log-info { color: var(--cyan); }
+  #log-output .log-success { color: var(--green); }
+  #log-output .log-error { color: var(--red); }
+  #log-output .log-warn { color: var(--yellow); }
+  .log-empty { color: var(--muted); font-style: italic; }
+
+  /* Action bar */
+  .action-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #status-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    flex: 1;
+  }
+  #status-text.running { color: var(--yellow); }
+  #status-text.success { color: var(--green); }
+  #status-text.error { color: var(--red); }
+
+  /* ── Presets page ── */
+  #page-presets {
+    padding: 24px;
+    overflow-y: auto;
+  }
+  .page-title {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .page-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    font-family: var(--mono);
+  }
+
+  .presets-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .preset-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .preset-card .preset-info { flex: 1; }
+  .preset-card .preset-name-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .preset-card .preset-name-input::placeholder { color: var(--muted); }
+  .preset-card .preset-flags-input {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    outline: none;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    padding: 5px 8px;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  .preset-card .preset-flags-input:focus { border-color: var(--accent); color: var(--text); }
+  .preset-card .preset-flags-input::placeholder { color: #444; }
+  .preset-actions { display: flex; gap: 6px; }
+  .badge-default {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(124,106,247,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(124,106,247,0.3);
+  }
+
+  /* Add preset */
+  #add-preset-btn {
+    border: 1px dashed var(--border2);
+    background: transparent;
+    border-radius: 8px;
+    padding: 12px;
+    width: 100%;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.15s;
+  }
+  #add-preset-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.05); }
+
+  /* Flags reference */
+  .flags-ref {
+    margin-top: 24px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .flags-ref-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .flags-ref-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+  .flag-item {
+    background: var(--bg3);
+    padding: 10px 14px;
+  }
+  .flag-code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--cyan);
+    margin-bottom: 3px;
+  }
+  .flag-desc {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── Auth page ── */
+  #page-auth {
+    padding: 24px;
+    overflow-y: auto;
+  }
+
+  .auth-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .auth-tab {
+    flex: 1;
+    padding: 7px 12px;
+    border-radius: 5px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .auth-tab:hover { color: var(--text); }
+  .auth-tab.active { background: var(--bg4); color: var(--text); border: 1px solid var(--border2); }
+
+  .auth-panel { display: none; }
+  .auth-panel.active { display: block; }
+
+  .auth-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+  }
+  .auth-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .auth-card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+  .auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .auth-field label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .auth-input {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+  .auth-input:focus { border-color: var(--accent); }
+  .auth-input::placeholder { color: #444; }
+
+  .auth-row {
+    display: flex;
+    gap: 10px;
+  }
+  .auth-row .auth-field { flex: 1; }
+
+  .auth-status {
+    margin-top: 10px;
+    font-size: 12px;
+    font-family: var(--mono);
+    padding: 7px 10px;
+    border-radius: 6px;
+    display: none;
+  }
+  .auth-status.active-auth { display: block; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); color: var(--green); }
+  .auth-status.inactive { display: block; background: var(--bg4); border: 1px solid var(--border); color: var(--muted); }
+
+  .oauth-site-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .oauth-site-btn {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .oauth-site-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(124,106,247,0.08); }
+
+  .auth-info-box {
+    background: rgba(34,211,238,0.06);
+    border: 1px solid rgba(34,211,238,0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--cyan);
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+
+  .cookie-method-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .cookie-method-tab {
+    padding: 5px 12px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+  .cookie-method-tab.active { background: var(--bg4); color: var(--text); border-color: var(--border2); }
+  .cookie-sub { display: none; }
+  .cookie-sub.active { display: block; }
+
+  /* ── Options page ── */
+  #page-options {
+    padding: 0;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+  }
+  #page-options.active { display: flex; }
+
+  .opts-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  .opts-sidebar {
+    width: 160px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .opts-nav {
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.12s;
+  }
+  .opts-nav:hover { color: var(--text); background: var(--bg3); }
+  .opts-nav.active { color: var(--accent); border-left-color: var(--accent); background: rgba(124,106,247,0.07); }
+
+  .opts-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 22px;
+  }
+  .opts-section { display: none; }
+  .opts-section.active { display: block; }
+
+  .opts-section-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .opts-section-desc {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-bottom: 18px;
+  }
+
+  .opt-group {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .opt-group-title {
+    padding: 9px 14px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--bg4);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .opt-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .opt-row:last-child { border-bottom: none; }
+  .opt-label {
+    flex: 1;
+  }
+  .opt-label strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .opt-label span {
+    font-size: 11.5px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .opt-control { flex-shrink: 0; }
+
+  /* Toggle switch */
+  .toggle {
+    width: 36px; height: 20px;
+    background: var(--bg4);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--muted);
+    top: 2px; left: 2px;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle.on { background: rgba(124,106,247,0.3); border-color: var(--accent); }
+  .toggle.on::after { transform: translateX(16px); background: var(--accent); }
+
+  .opt-input {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    width: 130px;
+    transition: border-color 0.15s;
+  }
+  .opt-input:focus { border-color: var(--accent); }
+  .opt-input::placeholder { color: #444; }
+  .opt-input.wide { width: 200px; }
+  .opt-input.narrow { width: 70px; }
+
+  .opt-select {
+    background: var(--bg4);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .opt-select:focus { border-color: var(--accent); }
+  .opt-select option { background: var(--bg3); }
+
+  /* Command preview bar */
+  .opts-preview-bar {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 10px 18px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+  }
+  .opts-preview-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  #opts-preview-text {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cyan);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .opts-reset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--muted);
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .opts-reset-btn:hover { color: var(--red); border-color: rgba(248,113,113,0.4); }
+
+  /* API key rows */
+  .apikey-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .apikey-row input { flex: 1; }
+  .apikey-row input.key-name { flex: 0 0 220px; font-size: 11.5px; color: var(--cyan); }
+  .apikey-toggle {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; padding: 4px; font-size: 14px;
+    transition: color 0.15s;
+  }
+  .apikey-toggle:hover { color: var(--text); }
+  .apikey-remove {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; padding: 4px; font-size: 14px;
+    transition: color 0.15s;
+  }
+  .apikey-remove:hover { color: var(--red); }
+  #apikeys-empty {
+    font-size: 12px; color: var(--muted); font-style: italic;
+    padding: 6px 0;
+  }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg4);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.success { border-color: rgba(74,222,128,0.4); }
+  #toast.error-t { border-color: rgba(248,113,113,0.4); }
+</style>
+</head>
+<body>
+
+<!-- Title Bar -->
+<div id="titlebar">
+  <div class="logo">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9"/>
+      <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6"/>
+      <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.6"/>
+      <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.3"/>
+    </svg>
+    gallery-dl GUI
+  </div>
+  <div class="spacer"></div>
+  <div class="winctrls">
+    <button onclick="window.api.minimize()" title="Minimize">─</button>
+    <button onclick="window.api.maximize()" title="Maximize">□</button>
+    <button class="close-btn" onclick="window.api.close()" title="Close">✕</button>
+  </div>
+</div>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="nav-item active" data-page="download" onclick="switchPage('download', this)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download
+    </div>
+    <div class="nav-item" data-page="options" onclick="switchPage('options', this)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
+        <circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+      Options
+    </div>
+    <div class="nav-item" data-page="auth" onclick="switchPage('auth', this)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      Auth
+    </div>
+    <div class="nav-item" data-page="presets" onclick="switchPage('presets', this)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+      Presets
+    </div>
+    <div class="sidebar-footer">
+      v1.0.0<br>
+      <span id="gdl-version">gallery-dl</span>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+
+    <!-- ── Download Page ── -->
+    <div id="page-download" class="page active">
+
+      <div class="top-panel">
+        <div class="section-label">URLs to download</div>
+        <div class="url-area">
+          <textarea id="url-input" placeholder="Paste one URL per line&#10;https://twitter.com/user&#10;https://instagram.com/p/abc123&#10;https://pixiv.net/artworks/12345678"></textarea>
+        </div>
+
+        <div class="controls-row">
+          <div class="control-group grow">
+            <div class="section-label">Output directory</div>
+            <div class="dir-row">
+              <input type="text" id="output-dir" placeholder="~/Downloads">
+              <button class="btn-icon" onclick="pickFolder()" title="Browse">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              </button>
+              <button class="btn-icon" onclick="openOutputDir()" title="Open folder">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <div class="section-label">Preset</div>
+            <select id="preset-select"></select>
+          </div>
+
+          <div class="control-group" style="justify-content: flex-end;">
+            <div class="section-label">&nbsp;</div>
+            <button class="btn btn-primary" id="add-to-queue-btn" onclick="addToQueue()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add to Queue
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue -->
+      <div class="queue-section">
+        <div class="queue-header">
+          <div class="section-label" style="margin:0">Queue</div>
+          <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" onclick="clearQueue()">Clear</button>
+        </div>
+        <div id="queue-list">
+          <div class="log-empty" style="font-size:12px;padding:8px 2px;">No URLs queued — paste URLs above and click Add to Queue</div>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="log-section">
+        <div class="log-header">
+          <div class="section-label" style="margin:0">Output log</div>
+          <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" onclick="clearLog()">Clear</button>
+        </div>
+        <div id="log-output">
+          <span class="log-empty">Waiting for download...</span>
+        </div>
+      </div>
+
+      <!-- Action bar -->
+      <div class="action-bar">
+        <span id="status-text">Ready</span>
+        <button class="btn btn-danger" id="stop-btn" onclick="stopDownload()" style="display:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          Stop
+        </button>
+        <button class="btn btn-primary" id="start-btn" onclick="startDownload()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Start Download
+        </button>
+      </div>
+
+    </div><!-- /page-download -->
+
+    <!-- ── Options Page ── -->
+    <div id="page-options" class="page">
+      <div class="opts-layout">
+
+        <!-- Options sidebar -->
+        <div class="opts-sidebar">
+          <div class="opts-nav active" onclick="switchOptsSection('download-behavior', this)">Download</div>
+          <div class="opts-nav" onclick="switchOptsSection('filtering', this)">Filtering</div>
+          <div class="opts-nav" onclick="switchOptsSection('output', this)">Output</div>
+          <div class="opts-nav" onclick="switchOptsSection('network', this)">Network</div>
+          <div class="opts-nav" onclick="switchOptsSection('sleep', this)">Sleep</div>
+          <div class="opts-nav" onclick="switchOptsSection('postprocessing', this)">Post-process</div>
+          <div class="opts-nav" onclick="switchOptsSection('archive', this)">Archive</div>
+        </div>
+
+        <!-- Options content -->
+        <div class="opts-content">
+
+          <!-- Download Behavior -->
+          <div id="opts-download-behavior" class="opts-section active">
+            <div class="opts-section-title">Download Behavior</div>
+            <div class="opts-section-desc">Controls how files are downloaded and handled</div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Queue behavior</div>
+              <div class="opt-row">
+                <div class="opt-label">
+                  <strong>Continue on failure</strong>
+                  <span>When a URL fails (e.g. code 4), skip it and continue to the next queued URL instead of stopping</span>
+                </div>
+                <div class="toggle on" id="opt-continue-on-fail" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label">
+                  <strong>Auto-retry failed URLs</strong>
+                  <span>Retry each failed URL this many times before marking it as failed (0 = no retry)</span>
+                </div>
+                <input class="opt-input narrow" type="number" min="0" max="10" id="opt-auto-retry" placeholder="0" onchange="saveOpts()">
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Skip / Overwrite</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Skip mode</strong><span>How to handle already-downloaded files</span></div>
+                <select class="opt-select" id="opt-skip-mode" onchange="saveOpts()">
+                  <option value="">Skip (default)</option>
+                  <option value="--no-skip">--no-skip (overwrite)</option>
+                  <option value="abort">abort on first skip</option>
+                  <option value="terminate">terminate all on skip</option>
+                </select>
+              </div>
+              <div class="opt-row" id="opt-skip-abort-row" style="display:none;">
+                <div class="opt-label"><strong>Abort after N skips</strong><span>Stop after this many consecutive skips</span></div>
+                <input class="opt-input narrow" type="number" min="1" id="opt-skip-n" placeholder="5" onchange="saveOpts()">
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">File Handling</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>No .part files</strong><span>--no-part — don't use temporary .part files</span></div>
+                <div class="toggle" id="opt-no-part" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>No mtime</strong><span>--no-mtime — don't set file modification times</span></div>
+                <div class="toggle" id="opt-no-mtime" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>No fallback URLs</strong><span>Disable fallback download URLs on failure</span></div>
+                <div class="toggle" id="opt-no-fallback" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Dry run (no download)</strong><span>--no-download — run without downloading files</span></div>
+                <div class="toggle" id="opt-no-download" onclick="toggleOpt(this)"></div>
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Rate Limiting</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Max download rate</strong><span>-r — e.g. 500k, 2.5M, 800k-2M</span></div>
+                <input class="opt-input" type="text" id="opt-limit-rate" placeholder="e.g. 1M" onchange="saveOpts()">
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Chunk size</strong><span>--chunk-size — in-memory chunk size (default: 32k)</span></div>
+                <input class="opt-input" type="text" id="opt-chunk-size" placeholder="e.g. 64k" onchange="saveOpts()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Filtering -->
+          <div id="opts-filtering" class="opts-section">
+            <div class="opts-section-title">Filtering</div>
+            <div class="opts-section-desc">Control which files and posts are downloaded</div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Range</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>File range</strong><span>--range — e.g. 1-20, 5, 1:24:3</span></div>
+                <input class="opt-input" type="text" id="opt-range" placeholder="e.g. 1-20" onchange="saveOpts()">
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Post range</strong><span>--post-range — like range, but for posts</span></div>
+                <input class="opt-input" type="text" id="opt-post-range" placeholder="e.g. 1-50" onchange="saveOpts()">
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Chapter range</strong><span>--child-range — for manga chapters / child extractors</span></div>
+                <input class="opt-input" type="text" id="opt-child-range" placeholder="e.g. 1-10" onchange="saveOpts()">
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Expression filters</div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>File filter</strong><span>--filter — Python expression. Keys from -K output. Example: image_width >= 1000 and rating == 's'</span></div>
+                <input class="opt-input wide" style="width:100%;max-width:420px;" type="text" id="opt-filter" placeholder='e.g. image_width >= 1000 and rating in ("s","q")' onchange="saveOpts()">
+              </div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>Post filter</strong><span>--post-filter — like filter, but applied to posts</span></div>
+                <input class="opt-input wide" style="width:100%;max-width:420px;" type="text" id="opt-post-filter" placeholder='e.g. "nature" in tags' onchange="saveOpts()">
+              </div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>Chapter filter</strong><span>--child-filter — for manga chapters. Example: 10 &lt;= chapter &lt; 20</span></div>
+                <input class="opt-input wide" style="width:100%;max-width:420px;" type="text" id="opt-child-filter" placeholder="e.g. 10 <= chapter < 20" onchange="saveOpts()">
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Tag filters (booru sites)</div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>Tags blacklist</strong><span>--tags-blacklist — skip posts with these tags (comma-separated)</span></div>
+                <input class="opt-input wide" style="width:100%;max-width:420px;" type="text" id="opt-tags-blacklist" placeholder="e.g. gore,scat,loli" onchange="saveOpts()">
+              </div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>Tags whitelist</strong><span>--tags-whitelist — only download posts with these tags</span></div>
+                <input class="opt-input wide" style="width:100%;max-width:420px;" type="text" id="opt-tags-whitelist" placeholder="e.g. solo,highres" onchange="saveOpts()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Output -->
+          <div id="opts-output" class="opts-section">
+            <div class="opts-section-title">Output & Naming</div>
+            <div class="opts-section-desc">Control filenames, verbosity, and output format</div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Filenames</div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>Filename format</strong><span>-f — format string. Use /O for original names. Keys from -K output.</span></div>
+                <input class="opt-input wide" style="width:100%;max-width:420px;" type="text" id="opt-filename" placeholder='e.g. {id}_{title}.{extension} or /O' onchange="saveOpts()">
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Restrict filenames</strong><span>Replace invalid characters in filenames</span></div>
+                <select class="opt-select" id="opt-restrict-filenames" onchange="saveOpts()">
+                  <option value="">Default (auto)</option>
+                  <option value="windows">windows</option>
+                  <option value="windows+">windows+ (unicode replacements)</option>
+                  <option value="unix">unix</option>
+                  <option value="ascii">ascii</option>
+                  <option value="ascii+">ascii+</option>
+                </select>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Force Windows-compatible names</strong><span>--windows-filenames</span></div>
+                <div class="toggle" id="opt-windows-filenames" onclick="toggleOpt(this)"></div>
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Verbosity</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Verbose output</strong><span>-v — show detailed debug information</span></div>
+                <div class="toggle" id="opt-verbose" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Quiet mode</strong><span>-q — suppress non-error output</span></div>
+                <div class="toggle" id="opt-quiet" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Get URLs only</strong><span>-g — print direct URLs without downloading</span></div>
+                <div class="toggle" id="opt-get-urls" onclick="toggleOpt(this)"></div>
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Config files</div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>Extra config file</strong><span>-c — load an additional config file</span></div>
+                <div class="dir-row" style="width:100%;max-width:420px;">
+                  <input class="opt-input" type="text" id="opt-config-file" placeholder="/path/to/gallery-dl.conf" style="flex:1;" onchange="saveOpts()">
+                  <button class="btn-icon" onclick="pickOptConfigFile()" title="Browse">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Ignore default configs</strong><span>--config-ignore — don't load ~/.config/gallery-dl/config.json etc.</span></div>
+                <div class="toggle" id="opt-config-ignore" onclick="toggleOpt(this)"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Network -->
+          <div id="opts-network" class="opts-section">
+            <div class="opts-section-title">Network</div>
+            <div class="opts-section-desc">HTTP settings, proxies, and connection behavior</div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Retries & Timeouts</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Max retries</strong><span>-R — failed HTTP request retries (-1 = infinite, default: 4)</span></div>
+                <input class="opt-input narrow" type="number" min="-1" id="opt-retries" placeholder="4" onchange="saveOpts()">
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>HTTP timeout</strong><span>--http-timeout — seconds before giving up (default: 30)</span></div>
+                <input class="opt-input narrow" type="number" min="1" id="opt-timeout" placeholder="30" onchange="saveOpts()">
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Proxy</div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>Proxy URL</strong><span>--proxy — e.g. http://127.0.0.1:8080 or socks5://user:pass@host:port</span></div>
+                <input class="opt-input wide" style="width:100%;max-width:420px;" type="text" id="opt-proxy" placeholder="http://127.0.0.1:8080" onchange="saveOpts()">
+              </div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label"><strong>Fake X-Forwarded-For</strong><span>--xff — bypass geo-restrictions. ISO country code or CIDR block (e.g. JP or 12.0.0.0/8)</span></div>
+                <input class="opt-input" type="text" id="opt-xff" placeholder="e.g. JP or 12.0.0.0/8" onchange="saveOpts()">
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">IP & SSL</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Force IPv4</strong><span>-4 — all connections via IPv4</span></div>
+                <div class="toggle" id="opt-ipv4" onclick="toggleOpt(this); if(this.classList.contains('on')) document.getElementById('opt-ipv6').classList.remove('on'); saveOpts();"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Force IPv6</strong><span>-6 — all connections via IPv6</span></div>
+                <div class="toggle" id="opt-ipv6" onclick="toggleOpt(this); if(this.classList.contains('on')) document.getElementById('opt-ipv4').classList.remove('on'); saveOpts();"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Disable certificate validation</strong><span>--no-check-certificate — skip HTTPS cert checks</span></div>
+                <div class="toggle" id="opt-no-cert" onclick="toggleOpt(this)"></div>
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">User-Agent</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>User-Agent preset</strong><span>-a — use a preset or type custom string below</span></div>
+                <select class="opt-select" id="opt-ua-preset" onchange="applyUAPreset(); saveOpts()">
+                  <option value="">Default (gallery-dl)</option>
+                  <option value="browser">browser (auto-detect system)</option>
+                  <option value="+firefox">+firefox (latest FF)</option>
+                  <option value="+chrome">+chrome (latest Chrome)</option>
+                  <option value="googlebot">googlebot</option>
+                  <option value="custom">Custom…</option>
+                </select>
+              </div>
+              <div class="opt-row" id="opt-ua-custom-row" style="display:none;">
+                <div class="opt-label"><strong>Custom User-Agent</strong><span>Full UA string</span></div>
+                <input class="opt-input wide" type="text" id="opt-ua-custom" placeholder="Mozilla/5.0 ..." onchange="saveOpts()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Sleep -->
+          <div id="opts-sleep" class="opts-section">
+            <div class="opts-section-title">Sleep / Rate Limiting</div>
+            <div class="opts-section-desc">Delays between requests to avoid rate limits and bans</div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Delay timings (seconds)</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Sleep between downloads</strong><span>--sleep — wait N seconds before each file download</span></div>
+                <input class="opt-input narrow" type="text" id="opt-sleep" placeholder="e.g. 2 or 1-3" onchange="saveOpts()">
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Sleep between requests</strong><span>--sleep-request — between each HTTP request during extraction</span></div>
+                <input class="opt-input narrow" type="text" id="opt-sleep-request" placeholder="e.g. 0.5" onchange="saveOpts()">
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Sleep between extractors</strong><span>--sleep-extractor — before starting each new URL/extractor</span></div>
+                <input class="opt-input narrow" type="text" id="opt-sleep-extractor" placeholder="e.g. 5" onchange="saveOpts()">
+              </div>
+            </div>
+
+            <div class="auth-info-box" style="margin-top:0;">
+              Use ranges like <code>1-3</code> to randomize sleep duration. gallery-dl's default sleep varies by site — many sites (Instagram, e621, Danbooru) already have built-in delays.
+            </div>
+          </div>
+
+          <!-- Post-processing -->
+          <div id="opts-postprocessing" class="opts-section">
+            <div class="opts-section-title">Post-processing</div>
+            <div class="opts-section-desc">What to do with files after downloading</div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Video conversion</div>
+              <div class="opt-row">
+                <div class="opt-label">
+                  <strong>Auto-convert .m4s → .mp4 / rename .m4v → .mp4</strong>
+                  <span>After download: remux .m4s files via FFmpeg (no re-encode) and rename .m4v files to .mp4. Both run automatically.</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span id="ffmpeg-status" style="font-size:11px;font-family:var(--mono);color:var(--muted);">checking...</span>
+                  <div class="toggle" id="opt-convert-m4s" onclick="toggleOpt(this)"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Metadata & Tags</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Write metadata JSON</strong><span>--write-metadata — save metadata as a .json file alongside each image</span></div>
+                <div class="toggle" id="opt-write-metadata" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Write gallery info.json</strong><span>--write-info-json — save gallery-level metadata</span></div>
+                <div class="toggle" id="opt-write-info-json" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Write tags to .txt</strong><span>--write-tags — save image tags to separate text files</span></div>
+                <div class="toggle" id="opt-write-tags" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Set mtime from metadata</strong><span>--mtime — set file modification time from metadata field</span></div>
+                <input class="opt-input" type="text" id="opt-mtime" placeholder="e.g. date" onchange="saveOpts()">
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Archiving</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Store in ZIP</strong><span>--zip — store all downloaded files in a ZIP archive</span></div>
+                <div class="toggle" id="opt-zip" onclick="toggleOpt(this); if(this.classList.contains('on')) { document.getElementById('opt-cbz').classList.remove('on'); } saveOpts();"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Store in CBZ</strong><span>--cbz — store in CBZ archive (ZIP with .cbz extension)</span></div>
+                <div class="toggle" id="opt-cbz" onclick="toggleOpt(this); if(this.classList.contains('on')) { document.getElementById('opt-zip').classList.remove('on'); } saveOpts();"></div>
+              </div>
+            </div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Pixiv Ugoira conversion</div>
+              <div class="opt-row">
+                <div class="opt-label"><strong>Convert Ugoira to</strong><span>--ugoira — requires FFmpeg. Converts Pixiv animated images.</span></div>
+                <select class="opt-select" id="opt-ugoira" onchange="saveOpts()">
+                  <option value="">Don't convert</option>
+                  <option value="webm">WebM (VP8)</option>
+                  <option value="mp4">MP4 (H.264)</option>
+                  <option value="gif">GIF</option>
+                  <option value="vp8">VP8</option>
+                  <option value="vp9">VP9</option>
+                  <option value="vp9-lossless">VP9 lossless</option>
+                  <option value="copy">copy (original frames)</option>
+                  <option value="zip">zip (frame archive)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Archive -->
+          <div id="opts-archive" class="opts-section">
+            <div class="opts-section-title">Download Archive</div>
+            <div class="opts-section-desc">Track downloaded files to avoid re-downloading</div>
+
+            <div class="opt-group">
+              <div class="opt-group-title">Archive database</div>
+              <div class="opt-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <div class="opt-label">
+                  <strong>Archive file path</strong>
+                  <span>--download-archive — SQLite DB storing downloaded file IDs. Downloads already in the archive are skipped.</span>
+                </div>
+                <div class="dir-row" style="width:100%;max-width:420px;">
+                  <input class="opt-input" type="text" id="opt-archive" placeholder="~/.archives/gallery-dl.sqlite3" style="flex:1;" onchange="saveOpts()">
+                  <button class="btn-icon" onclick="pickArchiveFile()" title="Browse">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  </button>
+                  <button class="btn-icon" onclick="openArchiveDir()" title="Open folder">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="auth-info-box" style="margin-top:0;">
+              The archive is a SQLite3 database. Each downloaded file's ID is stored and checked before future downloads — even if you rename or move files, they won't be re-downloaded. Use <code>{category}.sqlite3</code> in the path to create per-site archives.
+            </div>
+          </div>
+
+        </div><!-- /opts-content -->
+      </div><!-- /opts-layout -->
+
+      <!-- Command preview bar -->
+      <div class="opts-preview-bar">
+        <span class="opts-preview-label">Flags</span>
+        <span id="opts-preview-text">No options set</span>
+        <button class="opts-reset-btn" onclick="resetOpts()">Reset all</button>
+      </div>
+    </div><!-- /page-options -->
+
+    <!-- ── Auth Page ── -->
+    <div id="page-auth" class="page">
+      <div class="page-title">Authentication</div>
+      <div class="page-subtitle">Credentials applied to every download</div>
+
+      <!-- Auth method tabs -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchAuthTab('userpass', this)">Username &amp; Password</button>
+        <button class="auth-tab" onclick="switchAuthTab('cookies', this)">Cookies</button>
+        <button class="auth-tab" onclick="switchAuthTab('oauth', this)">OAuth</button>
+        <button class="auth-tab" onclick="switchAuthTab('apikeys', this)">API Keys</button>
+      </div>
+
+      <!-- ── Username / Password ── -->
+      <div id="auth-userpass" class="auth-panel active">
+        <div class="auth-info-box">
+          Credentials are passed as <code>-u</code> / <code>-p</code> flags on every download. Required for <strong>nijie</strong>; optional for danbooru, e621, inkbunny, mangadex, subscribestar, and others.
+        </div>
+        <div class="auth-card">
+          <div class="auth-card-title">Login credentials</div>
+          <div class="auth-card-desc">Leave blank to not pass credentials. Password is masked and stored locally.</div>
+          <div class="auth-row">
+            <div class="auth-field">
+              <label>Username</label>
+              <input class="auth-input" type="text" id="auth-username" placeholder="your_username" autocomplete="off">
+            </div>
+            <div class="auth-field">
+              <label>Password</label>
+              <input class="auth-input" type="password" id="auth-password" placeholder="••••••••" autocomplete="off">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px;">
+            <button class="btn btn-primary" onclick="saveAuth()" style="font-size:12px;padding:6px 16px;">Save</button>
+            <button class="btn btn-ghost" onclick="clearAuth()" style="font-size:12px;padding:6px 14px;">Clear</button>
+          </div>
+          <div id="auth-userpass-status" class="auth-status inactive">No credentials saved</div>
+        </div>
+      </div>
+
+      <!-- ── Cookies ── -->
+      <div id="auth-cookies" class="auth-panel">
+        <div class="auth-info-box">
+          Use cookies for sites where username/password login isn't possible (CAPTCHA, etc). The cookie flag is appended to every download command.
+        </div>
+
+        <div class="cookie-method-tabs">
+          <button class="cookie-method-tab active" onclick="switchCookieMethod('file', this)">Cookie file</button>
+          <button class="cookie-method-tab" onclick="switchCookieMethod('browser', this)">From browser</button>
+        </div>
+
+        <div id="cookie-sub-file" class="cookie-sub active">
+          <div class="auth-card">
+            <div class="auth-card-title">cookies.txt file</div>
+            <div class="auth-card-desc">Export cookies from your browser using "Get cookies.txt LOCALLY" (Chrome) or "Export Cookies" (Firefox), then select the file here.</div>
+            <div class="auth-field">
+              <label>Path to cookies.txt</label>
+              <div class="dir-row">
+                <input class="auth-input" type="text" id="auth-cookies-path" placeholder="/home/user/cookies.txt" style="flex:1;">
+                <button class="btn-icon" onclick="pickCookieFile()" title="Browse">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+              <button class="btn btn-primary" onclick="saveCookieFile()" style="font-size:12px;padding:6px 16px;">Save</button>
+              <button class="btn btn-ghost" onclick="clearCookieFile()" style="font-size:12px;padding:6px 14px;">Clear</button>
+            </div>
+            <div id="auth-cookie-file-status" class="auth-status inactive">No cookie file set</div>
+          </div>
+        </div>
+
+        <div id="cookie-sub-browser" class="cookie-sub">
+          <div class="auth-card">
+            <div class="auth-card-title">Extract from browser</div>
+            <div class="auth-card-desc">gallery-dl will read cookies directly from your browser's profile. The browser must be installed on this machine.</div>
+            <div class="auth-field">
+              <label>Browser</label>
+              <select class="auth-input" id="auth-cookie-browser" style="cursor:pointer;">
+                <option value="">— select browser —</option>
+                <option value="firefox">Firefox</option>
+                <option value="chrome">Chrome</option>
+                <option value="chromium">Chromium</option>
+                <option value="edge">Edge</option>
+                <option value="safari">Safari</option>
+                <option value="brave">Brave</option>
+                <option value="opera">Opera</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+              <button class="btn btn-primary" onclick="saveCookieBrowser()" style="font-size:12px;padding:6px 16px;">Save</button>
+              <button class="btn btn-ghost" onclick="clearCookieBrowser()" style="font-size:12px;padding:6px 14px;">Clear</button>
+            </div>
+            <div id="auth-cookie-browser-status" class="auth-status inactive">No browser selected</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── OAuth ── -->
+      <div id="auth-oauth" class="auth-panel">
+        <div class="auth-info-box">
+          OAuth output is streamed directly into the <strong>Download log</strong> on the Download page. The authorization URL will open automatically in your browser. Tokens must be manually added to your <code>~/.config/gallery-dl/config.json</code>.
+        </div>
+
+        <div class="auth-card">
+          <div class="auth-card-title">Reddit setup (required before OAuth)</div>
+          <div class="auth-card-desc">Reddit OAuth requires your own app client ID. <strong>Do this first:</strong> go to <a href="#" onclick="window.api.openFolder('https://www.reddit.com/prefs/apps'); return false;" style="color:var(--cyan);">reddit.com/prefs/apps</a>, create an <strong>installed app</strong> with redirect URI <code>http://localhost:6414/</code>, then paste the client ID below.</div>
+          <div class="auth-field">
+            <label>Reddit Client ID</label>
+            <div class="dir-row">
+              <input class="auth-input" type="text" id="reddit-client-id" placeholder="14-character string under your app name" style="flex:1;" autocomplete="off">
+              <button class="btn btn-primary" onclick="saveRedditClientId()" style="font-size:12px;padding:6px 14px;white-space:nowrap;">Save to config</button>
+            </div>
+          </div>
+          <div id="reddit-client-id-status" class="auth-status inactive">Not set</div>
+        </div>
+
+        <div class="auth-card">
+          <div class="auth-card-title">Run OAuth flow</div>
+          <div class="auth-card-desc">Output streams into the Download log. The auth URL opens in your browser automatically — authorize it, then copy the <code>token</code> and <code>token-secret</code> values shown in the log into your config file using the editor below.</div>
+          <div class="oauth-site-grid">
+            <button class="oauth-site-btn" onclick="runOAuthAndSwitch('reddit')">Reddit</button>
+            <button class="oauth-site-btn" onclick="runOAuthAndSwitch('pixiv')">Pixiv ★</button>
+            <button class="oauth-site-btn" onclick="runOAuthAndSwitch('deviantart')">DeviantArt</button>
+            <button class="oauth-site-btn" onclick="runOAuthAndSwitch('flickr')">Flickr</button>
+            <button class="oauth-site-btn" onclick="runOAuthAndSwitch('tumblr')">Tumblr</button>
+            <button class="oauth-site-btn" onclick="runOAuthAndSwitch('smugmug')">SmugMug</button>
+          </div>
+        </div>
+
+        <div class="auth-card">
+          <div class="auth-card-title">gallery-dl config file editor</div>
+          <div class="auth-card-desc">Edit <code>~/.config/gallery-dl/config.json</code> directly. Paste OAuth tokens here after running the flow above.</div>
+          <textarea id="gdl-config-editor" style="
+            width:100%; min-height:160px; resize:vertical;
+            background:var(--bg); border:1px solid var(--border); border-radius:6px;
+            padding:10px 12px; color:var(--text); font-family:var(--mono);
+            font-size:11.5px; line-height:1.6; outline:none;
+          " placeholder='{"extractor": {"reddit": {"client-id": "...", "token": "...", "token-secret": "..."}}}' spellcheck="false"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+            <button class="btn btn-primary" onclick="saveGdlConfig()" style="font-size:12px;padding:6px 16px;">Save config</button>
+            <button class="btn btn-ghost" onclick="loadGdlConfig()" style="font-size:12px;padding:6px 14px;">Reload</button>
+            <span id="gdl-config-status" style="font-size:11px;font-family:var(--mono);color:var(--muted);"></span>
+          </div>
+        </div>
+
+        <div class="auth-card">
+          <div class="auth-card-title">Mastodon instance</div>
+          <div class="auth-card-desc">For Mastodon, provide the instance URL (e.g. <code>mastodon.social</code> or <code>pawoo.net</code>).</div>
+          <div class="auth-field">
+            <label>Instance</label>
+            <div class="dir-row">
+              <input class="auth-input" type="text" id="mastodon-instance" placeholder="mastodon.social" style="flex:1;">
+              <button class="btn btn-primary" onclick="runOAuthAndSwitch('mastodon:' + document.getElementById('mastodon-instance').value.trim())" style="font-size:12px;padding:6px 14px;white-space:nowrap;">Authorize</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── API Keys ── -->
+      <div id="auth-apikeys" class="auth-panel">
+        <div class="auth-info-box">
+          API keys are passed as <code>-o "api-key=VALUE"</code> (or site-specific option names) on every download. Keys are stored locally and never sent anywhere except to gallery-dl.
+        </div>
+
+        <div class="auth-card">
+          <div class="auth-card-title">Saved API keys</div>
+          <div class="auth-card-desc">Each key is passed as a <code>-o</code> option flag. The option name must match what gallery-dl expects for that extractor.</div>
+          <div id="apikeys-list"></div>
+          <button class="btn btn-ghost" onclick="addApiKey()" style="margin-top:10px;font-size:12px;padding:5px 12px;border-style:dashed;">
+            + Add key
+          </button>
+        </div>
+
+        <div class="flags-ref" style="margin-top:0;">
+          <div class="flags-ref-header">Known API key option names</div>
+          <div class="flags-ref-body" style="grid-template-columns:1fr 1fr;">
+            <div class="flag-item"><div class="flag-code">danbooru:api-key</div><div class="flag-desc">Danbooru API key</div></div>
+            <div class="flag-item"><div class="flag-code">danbooru:username</div><div class="flag-desc">Danbooru username (pair with api-key)</div></div>
+            <div class="flag-item"><div class="flag-code">e621:api-key</div><div class="flag-desc">e621 API key</div></div>
+            <div class="flag-item"><div class="flag-code">e621:username</div><div class="flag-desc">e621 username (pair with api-key)</div></div>
+            <div class="flag-item"><div class="flag-code">artstation:api-key</div><div class="flag-desc">ArtStation API key</div></div>
+            <div class="flag-item"><div class="flag-code">newgrounds:api-key</div><div class="flag-desc">Newgrounds API key</div></div>
+            <div class="flag-item"><div class="flag-code">twitter:api-key</div><div class="flag-desc">Twitter/X API key</div></div>
+            <div class="flag-item"><div class="flag-code">twitter:api-secret</div><div class="flag-desc">Twitter/X API secret</div></div>
+            <div class="flag-item"><div class="flag-code">twitter:access-token</div><div class="flag-desc">Twitter/X access token</div></div>
+            <div class="flag-item"><div class="flag-code">twitter:access-token-secret</div><div class="flag-desc">Twitter/X access token secret</div></div>
+            <div class="flag-item"><div class="flag-code">flickr:api-key</div><div class="flag-desc">Flickr API key</div></div>
+            <div class="flag-item"><div class="flag-code">reddit:client-id</div><div class="flag-desc">Reddit app client ID</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-auth -->
+
+    <!-- ── Presets Page ── -->
+    <div id="page-presets" class="page">
+      <div class="page-title">Presets</div>
+      <div class="page-subtitle">Named flag sets applied during download</div>
+
+      <div class="presets-grid" id="presets-grid"></div>
+
+      <button id="add-preset-btn" onclick="addPreset()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Preset
+      </button>
+
+      <div class="flags-ref">
+        <div class="flags-ref-header">Common flags reference</div>
+        <div class="flags-ref-body">
+          <div class="flag-item"><div class="flag-code">-d /path/to/dir</div><div class="flag-desc">Base download directory</div></div>
+          <div class="flag-item"><div class="flag-code">--zip</div><div class="flag-desc">Download into ZIP archive</div></div>
+          <div class="flag-item"><div class="flag-code">--no-mtime</div><div class="flag-desc">Don't set file modification time</div></div>
+          <div class="flag-item"><div class="flag-code">--no-part</div><div class="flag-desc">Don't use .part files</div></div>
+          <div class="flag-item"><div class="flag-code">--no-skip</div><div class="flag-desc">Re-download existing files</div></div>
+          <div class="flag-item"><div class="flag-code">--write-metadata</div><div class="flag-desc">Write metadata JSON files</div></div>
+          <div class="flag-item"><div class="flag-code">--write-tags</div><div class="flag-desc">Embed tags into image metadata</div></div>
+          <div class="flag-item"><div class="flag-code">-r 2</div><div class="flag-desc">Rate limit (seconds between downloads)</div></div>
+          <div class="flag-item"><div class="flag-code">--range 1-10</div><div class="flag-desc">Download only items in range</div></div>
+          <div class="flag-item"><div class="flag-code">--ugoira-conv</div><div class="flag-desc">Convert Pixiv ugoira to GIF/video</div></div>
+          <div class="flag-item"><div class="flag-code">--cookies-from-browser</div><div class="flag-desc">Use browser cookies for auth</div></div>
+          <div class="flag-item"><div class="flag-code">-v</div><div class="flag-desc">Verbose output</div></div>
+        </div>
+      </div>
+    </div><!-- /page-presets -->
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let queue = [];       // { id, url, status: 'pending'|'running'|'done'|'error' }
+let presets = [];
+let isRunning = false;
+let currentQueueIndex = -1;
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  const defaultDir = await window.api.getDefaultDir();
+  document.getElementById('output-dir').placeholder = defaultDir;
+
+  presets = await window.api.getPresets();
+  renderPresetSelect();
+  renderPresetsPage();
+
+  // Check FFmpeg availability for m4s conversion
+  const hasFfmpeg = await window.api.checkFfmpeg();
+  const statusEl = document.getElementById('ffmpeg-status');
+  if (statusEl) {
+    statusEl.textContent = hasFfmpeg ? '✓ ffmpeg found' : '✗ ffmpeg not found';
+    statusEl.style.color = hasFfmpeg ? 'var(--green)' : 'var(--red)';
+    if (!hasFfmpeg) {
+      document.getElementById('opt-convert-m4s').style.opacity = '0.4';
+      document.getElementById('opt-convert-m4s').style.pointerEvents = 'none';
+    }
+  }
+}
+init();
+
+// ── Page switching ────────────────────────────────────────────────────────────
+function switchPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  el.classList.add('active');
+  if (name === 'auth') loadGdlConfig();
+}
+
+// ── Preset select ─────────────────────────────────────────────────────────────
+function renderPresetSelect() {
+  const sel = document.getElementById('preset-select');
+  sel.innerHTML = presets.map(p =>
+    `<option value="${p.id}">${p.name}</option>`
+  ).join('');
+}
+
+function getSelectedPreset() {
+  const id = document.getElementById('preset-select').value;
+  return presets.find(p => p.id === id) || presets[0];
+}
+
+// ── Queue ─────────────────────────────────────────────────────────────────────
+function sanitizeUrl(s) {
+  // Remove null bytes, zero-width spaces, and other invisible Unicode junk
+  return s.replace(/\0/g, '').replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '').trim();
+}
+
+function addToQueue() {
+  const raw = document.getElementById('url-input').value.trim();
+  if (!raw) return;
+
+  const urls = raw.split('\n').map(s => sanitizeUrl(s)).filter(Boolean);
+  if (!urls.length) return;
+
+  urls.forEach(url => {
+    if (!queue.find(q => q.url === url && q.status === 'pending')) {
+      queue.push({ id: Date.now() + Math.random(), url, status: 'pending' });
+    }
+  });
+
+  document.getElementById('url-input').value = '';
+  renderQueue();
+}
+
+function renderQueue() {
+  const list = document.getElementById('queue-list');
+  if (!queue.length) {
+    list.innerHTML = '<div class="log-empty" style="font-size:12px;padding:8px 2px;">No URLs queued — paste URLs above and click Add to Queue</div>';
+    return;
+  }
+  list.innerHTML = queue.map(item => `
+    <div class="queue-item ${item.status}" data-id="${item.id}">
+      <div class="q-status"></div>
+      <div class="q-url" title="${item.url}">${item.url}</div>
+      ${item.status === 'pending' ? `<button class="q-remove" onclick="removeFromQueue('${item.id}')">✕</button>` : ''}
+    </div>
+  `).join('');
+}
+
+function removeFromQueue(id) {
+  queue = queue.filter(q => q.id != id);
+  renderQueue();
+}
+
+function clearQueue() {
+  queue = queue.filter(q => q.status === 'running');
+  renderQueue();
+}
+
+// ── Download ──────────────────────────────────────────────────────────────────
+async function startDownload() {
+  const pending = queue.filter(q => q.status === 'pending');
+  if (!pending.length) {
+    const raw = document.getElementById('url-input').value.trim();
+    if (!raw) { showToast('No URLs to download', 'error'); return; }
+    addToQueue();
+    return startDownload();
+  }
+
+  const preset = getSelectedPreset();
+  const outputDir = document.getElementById('output-dir').value.trim();
+  const authFlags = getAuthFlags();
+  const optFlags = getOptionsFlags();
+  const flags = [preset.flags, authFlags, optFlags].filter(Boolean).join(' ');
+
+  const continueOnFail = optsState.continueOnFail !== false; // default true
+  const maxRetries = parseInt(optsState.autoRetry) || 0;
+
+  isRunning = true;
+  setRunningState(true);
+  clearLog();
+
+  logLine(`▶ Starting queue: ${pending.length} URL(s) — preset "${preset.name}"`, 'info');
+  if (continueOnFail) logLine(`  Continue on failure: ON`, 'info');
+  if (maxRetries > 0)  logLine(`  Auto-retry: ${maxRetries}x per URL`, 'info');
+  if (outputDir) logLine(`  Output: ${outputDir}`, 'info');
+  logLine('', '');
+
+  window.api.removeOutputListeners();
+
+  // Process each URL individually so failures don't kill the whole queue
+  for (let i = 0; i < pending.length; i++) {
+    if (!isRunning) break; // user hit Stop
+
+    const item = pending[i];
+    const total = pending.length;
+    let attempt = 0;
+    let lastCode = -1;
+
+    // Retry loop
+    while (attempt <= maxRetries) {
+      if (!isRunning) break;
+
+      if (attempt === 0) {
+        logLine(`── [${i + 1}/${total}] ${item.url}`, 'info');
+      } else {
+        logLine(`  ↺ Retry ${attempt}/${maxRetries} for ${item.url}`, 'warn');
+      }
+
+      item.status = 'running';
+      renderQueue();
+
+      lastCode = await runSingleDownload(item.url, flags, outputDir);
+
+      if (lastCode === 0 || lastCode === null) break; // success — no retry needed
+      attempt++;
+      if (attempt <= maxRetries) {
+        logLine(`  ⏳ Waiting 5s before retry...`, 'warn');
+        await sleep(5000);
+      }
+    }
+
+    // Evaluate final result for this item
+    if (lastCode === 0 || lastCode === null) {
+      item.status = 'done';
+      logLine(`  ✓ Done`, 'success');
+    } else {
+      item.status = 'error';
+      logLine(`  ✗ Failed (code ${lastCode})${continueOnFail && i < pending.length - 1 ? ' — continuing queue' : ''}`, 'error');
+      if (!continueOnFail) {
+        logLine('', '');
+        logLine('Queue stopped due to failure. Enable "Continue on failure" in Options to skip failed URLs.', 'warn');
+        break;
+      }
+    }
+    renderQueue();
+    logLine('', '');
+  }
+
+  // Run m4s/m4v conversion after entire queue finishes
+  if (optsState.convertM4s && outputDir) {
+    await window.api.convertFiles(outputDir);
+  }
+
+  const doneCount  = pending.filter(q => q.status === 'done').length;
+  const errorCount = pending.filter(q => q.status === 'error').length;
+
+  if (errorCount === 0) {
+    logLine(`✓ All ${doneCount} download(s) complete`, 'success');
+    setStatus('All done', 'success');
+  } else if (doneCount === 0) {
+    logLine(`✗ All ${errorCount} download(s) failed`, 'error');
+    setStatus('Failed', 'error');
+  } else {
+    logLine(`⚠ ${doneCount} succeeded, ${errorCount} failed`, 'warn');
+    setStatus(`${doneCount} done, ${errorCount} failed`, 'error');
+  }
+
+  isRunning = false;
+  setRunningState(false);
+  renderQueue();
+}
+
+// Run a single URL and return the exit code
+function runSingleDownload(url, flags, outputDir) {
+  return new Promise((resolve) => {
+    window.api.removeOutputListeners();
+
+    window.api.onOutput(({ type, text }) => {
+      const lines = text.split('\n').filter(l => l.length);
+      lines.forEach(line => {
+        if (type === 'error') logLine('  ' + line, 'error');
+        else if (type === 'stderr') logLine('  ' + line, 'stderr');
+        else {
+          if (line.includes('Downloading')) logLine('  ' + line, 'info');
+          else if (line.includes('Skipping') || line.includes('skip')) logLine('  ' + line, 'warn');
+          else if (line.includes('Finished') || line.includes('Downloaded')) logLine('  ' + line, 'success');
+          else logLine('  ' + line, 'normal');
+        }
+      });
+    });
+
+    window.api.onDone(({ code }) => {
+      resolve(code);
+    });
+
+    window.api.startDownload({
+      urls: [url],
+      flags,
+      outputDir: outputDir || null,
+      convertM4s: false, // handled after full queue
+    }).then(result => {
+      if (!result.ok) {
+        logLine('  ✗ ' + result.error, 'error');
+        resolve(-1);
+      }
+    });
+  });
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function stopDownload() {
+  await window.api.stopDownload();
+  logLine('', '');
+  logLine('⏹ Stopped by user', 'warn');
+  setStatus('Stopped', '');
+  isRunning = false;
+  setRunningState(false);
+  queue.forEach(q => { if (q.status === 'running') q.status = 'pending'; });
+  renderQueue();
+}
+
+function setRunningState(running) {
+  document.getElementById('start-btn').style.display = running ? 'none' : 'flex';
+  document.getElementById('stop-btn').style.display = running ? 'flex' : 'none';
+  if (running) setStatus('Downloading...', 'running');
+}
+
+function setStatus(text, cls) {
+  const el = document.getElementById('status-text');
+  el.textContent = text;
+  el.className = cls;
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+function logLine(text, type) {
+  const log = document.getElementById('log-output');
+  // Remove empty placeholder
+  const empty = log.querySelector('.log-empty');
+  if (empty) empty.remove();
+
+  const span = document.createElement('span');
+  span.className = 'log-line';
+  if (type === 'stderr') span.classList.add('log-stderr');
+  else if (type === 'info') span.classList.add('log-info');
+  else if (type === 'success') span.classList.add('log-success');
+  else if (type === 'error') span.classList.add('log-error');
+  else if (type === 'warn') span.classList.add('log-warn');
+
+  span.textContent = text || '\u200B';
+  log.appendChild(span);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('log-output').innerHTML = '<span class="log-empty">Waiting for download...</span>';
+}
+
+// ── Folder controls ───────────────────────────────────────────────────────────
+async function pickFolder() {
+  const folder = await window.api.pickFolder();
+  if (folder) document.getElementById('output-dir').value = folder;
+}
+
+async function openOutputDir() {
+  const dir = document.getElementById('output-dir').value.trim();
+  const defaultDir = await window.api.getDefaultDir();
+  await window.api.openFolder(dir || defaultDir);
+}
+
+// ── Presets page ──────────────────────────────────────────────────────────────
+function renderPresetsPage() {
+  const grid = document.getElementById('presets-grid');
+  grid.innerHTML = presets.map((p, i) => `
+    <div class="preset-card" data-index="${i}">
+      <div class="preset-info">
+        <input class="preset-name-input" type="text" value="${escHtml(p.name)}" placeholder="Preset name"
+          onchange="updatePreset(${i}, 'name', this.value)">
+        <input class="preset-flags-input" type="text" value="${escHtml(p.flags)}" placeholder="e.g. --no-mtime --zip -v"
+          onchange="updatePreset(${i}, 'flags', this.value)">
+      </div>
+      ${i === 0 ? '<span class="badge-default">DEFAULT</span>' : ''}
+      <div class="preset-actions">
+        ${i > 0 ? `<button class="btn-icon" onclick="deletePreset(${i})" title="Delete" style="color:var(--red)">✕</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function updatePreset(index, field, value) {
+  presets[index][field] = value;
+  savePresetsDebounced();
+  renderPresetSelect();
+}
+
+function addPreset() {
+  presets.push({
+    id: 'preset-' + Date.now(),
+    name: 'New Preset',
+    flags: '',
+  });
+  renderPresetsPage();
+  renderPresetSelect();
+  savePresetsDebounced();
+}
+
+function deletePreset(index) {
+  presets.splice(index, 1);
+  renderPresetsPage();
+  renderPresetSelect();
+  savePresetsDebounced();
+}
+
+let saveTimer;
+function savePresetsDebounced() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    await window.api.savePresets(presets);
+    showToast('Presets saved', 'success');
+  }, 800);
+}
+
+// ── Auth state ────────────────────────────────────────────────────────────────
+let authState = {
+  username: '',
+  password: '',
+  cookieFile: '',
+  cookieBrowser: '',
+  apiKeys: [],  // [{ name: 'danbooru:api-key', value: '...', visible: false }]
+};
+
+function loadAuthState() {
+  try {
+    const saved = localStorage.getItem('gdl-auth');
+    if (saved) authState = { ...authState, ...JSON.parse(saved) };
+  } catch {}
+  applyAuthStateToUI();
+}
+
+function saveAuthState() {
+  localStorage.setItem('gdl-auth', JSON.stringify(authState));
+}
+
+function applyAuthStateToUI() {
+  document.getElementById('auth-username').value = authState.username || '';
+  document.getElementById('auth-password').value = authState.password || '';
+  document.getElementById('auth-cookies-path').value = authState.cookieFile || '';
+  document.getElementById('auth-cookie-browser').value = authState.cookieBrowser || '';
+  renderApiKeysList();
+  updateAuthStatuses();
+}
+
+function updateAuthStatuses() {
+  const upEl = document.getElementById('auth-userpass-status');
+  if (authState.username) {
+    upEl.className = 'auth-status active-auth';
+    upEl.textContent = `✓ Saved: ${authState.username}`;
+  } else {
+    upEl.className = 'auth-status inactive';
+    upEl.textContent = 'No credentials saved';
+  }
+
+  const cfEl = document.getElementById('auth-cookie-file-status');
+  if (authState.cookieFile) {
+    cfEl.className = 'auth-status active-auth';
+    cfEl.textContent = `✓ ${authState.cookieFile}`;
+  } else {
+    cfEl.className = 'auth-status inactive';
+    cfEl.textContent = 'No cookie file set';
+  }
+
+  const cbEl = document.getElementById('auth-cookie-browser-status');
+  if (authState.cookieBrowser) {
+    cbEl.className = 'auth-status active-auth';
+    cbEl.textContent = `✓ Using ${authState.cookieBrowser}`;
+  } else {
+    cbEl.className = 'auth-status inactive';
+    cbEl.textContent = 'No browser selected';
+  }
+}
+
+function getAuthFlags() {
+  const flags = [];
+  if (authState.username) flags.push(`-u "${authState.username}"`);
+  if (authState.password) flags.push(`-p "${authState.password}"`);
+  if (authState.cookieFile) flags.push(`--cookies "${authState.cookieFile}"`);
+  else if (authState.cookieBrowser) flags.push(`--cookies-from-browser ${authState.cookieBrowser}`);
+  (authState.apiKeys || []).forEach(k => {
+    if (k.name && k.value) flags.push(`-o "${k.name}=${k.value}"`);
+  });
+  return flags.join(' ');
+}
+
+// ── API Keys ──────────────────────────────────────────────────────────────────
+function renderApiKeysList() {
+  const list = document.getElementById('apikeys-list');
+  if (!list) return;
+  const keys = authState.apiKeys || [];
+  if (!keys.length) {
+    list.innerHTML = '<div id="apikeys-empty">No API keys saved. Click "+ Add key" to add one.</div>';
+    return;
+  }
+  list.innerHTML = keys.map((k, i) => `
+    <div class="apikey-row">
+      <input class="auth-input key-name" type="text" value="${escHtml(k.name)}"
+        placeholder="e.g. danbooru:api-key"
+        onchange="updateApiKey(${i}, 'name', this.value)">
+      <input class="auth-input" type="${k.visible ? 'text' : 'password'}" value="${escHtml(k.value)}"
+        placeholder="API key value"
+        onchange="updateApiKey(${i}, 'value', this.value)" style="flex:1;">
+      <button class="apikey-toggle" onclick="toggleApiKeyVisibility(${i})" title="${k.visible ? 'Hide' : 'Show'}">
+        ${k.visible ? '🙈' : '👁'}
+      </button>
+      <button class="apikey-remove" onclick="removeApiKey(${i})" title="Remove">✕</button>
+    </div>
+  `).join('');
+}
+
+function addApiKey() {
+  if (!authState.apiKeys) authState.apiKeys = [];
+  authState.apiKeys.push({ name: '', value: '', visible: false });
+  renderApiKeysList();
+}
+
+function updateApiKey(i, field, value) {
+  authState.apiKeys[i][field] = value;
+  saveAuthState();
+}
+
+function removeApiKey(i) {
+  authState.apiKeys.splice(i, 1);
+  saveAuthState();
+  renderApiKeysList();
+  showToast('Key removed');
+}
+
+function toggleApiKeyVisibility(i) {
+  authState.apiKeys[i].visible = !authState.apiKeys[i].visible;
+  renderApiKeysList();
+}
+
+function saveAuth() {
+  authState.username = document.getElementById('auth-username').value.trim();
+  authState.password = document.getElementById('auth-password').value;
+  saveAuthState();
+  updateAuthStatuses();
+  showToast('Credentials saved', 'success');
+}
+
+function clearAuth() {
+  authState.username = '';
+  authState.password = '';
+  document.getElementById('auth-username').value = '';
+  document.getElementById('auth-password').value = '';
+  saveAuthState();
+  updateAuthStatuses();
+  showToast('Credentials cleared');
+}
+
+async function pickCookieFile() {
+  const file = await window.api.pickFile();
+  if (file) document.getElementById('auth-cookies-path').value = file;
+}
+
+function saveCookieFile() {
+  authState.cookieFile = document.getElementById('auth-cookies-path').value.trim();
+  authState.cookieBrowser = '';
+  document.getElementById('auth-cookie-browser').value = '';
+  saveAuthState();
+  updateAuthStatuses();
+  showToast('Cookie file saved', 'success');
+}
+
+function clearCookieFile() {
+  authState.cookieFile = '';
+  document.getElementById('auth-cookies-path').value = '';
+  saveAuthState();
+  updateAuthStatuses();
+  showToast('Cookie file cleared');
+}
+
+function saveCookieBrowser() {
+  const val = document.getElementById('auth-cookie-browser').value;
+  if (!val) { showToast('Select a browser first', 'error'); return; }
+  authState.cookieBrowser = val;
+  authState.cookieFile = '';
+  document.getElementById('auth-cookies-path').value = '';
+  saveAuthState();
+  updateAuthStatuses();
+  showToast(`Using ${val} cookies`, 'success');
+}
+
+function clearCookieBrowser() {
+  authState.cookieBrowser = '';
+  document.getElementById('auth-cookie-browser').value = '';
+  saveAuthState();
+  updateAuthStatuses();
+  showToast('Browser cookies cleared');
+}
+
+function runOAuth(site) {
+  window.api.runOAuth(site);
+  showToast(`Launched OAuth for ${site}...`);
+}
+
+function runOAuthAndSwitch(site) {
+  if (!site || site === 'mastodon:') { showToast('Enter a Mastodon instance', 'error'); return; }
+  // Switch to Download tab so user can see the log output
+  const downloadNav = document.querySelector('[data-page="download"]');
+  if (downloadNav) switchPage('download', downloadNav);
+  window.api.runOAuth(site);
+  showToast(`OAuth started — check the Download log`);
+}
+
+async function saveRedditClientId() {
+  const clientId = document.getElementById('reddit-client-id').value.trim();
+  if (!clientId) { showToast('Enter a client ID first', 'error'); return; }
+  const result = await window.api.patchGdlConfig({
+    extractor: { reddit: { 'client-id': clientId } }
+  });
+  const statusEl = document.getElementById('reddit-client-id-status');
+  if (result.ok) {
+    statusEl.className = 'auth-status active-auth';
+    statusEl.textContent = `✓ Saved to ${result.path}`;
+    showToast('Reddit client ID saved', 'success');
+    loadGdlConfig(); // refresh editor
+  } else {
+    statusEl.className = 'auth-status inactive';
+    statusEl.textContent = `✗ ${result.error}`;
+    showToast('Failed to save config', 'error');
+  }
+}
+
+async function loadGdlConfig() {
+  const result = await window.api.readGdlConfig();
+  const editor = document.getElementById('gdl-config-editor');
+  const status = document.getElementById('gdl-config-status');
+  if (!editor) return;
+  if (result.ok) {
+    // Pretty-print it
+    try {
+      editor.value = JSON.stringify(JSON.parse(result.content), null, 4);
+    } catch {
+      editor.value = result.content;
+    }
+    status.textContent = result.path;
+    status.style.color = 'var(--muted)';
+
+    // Pre-fill Reddit client ID if present
+    try {
+      const cfg = JSON.parse(result.content);
+      const cid = cfg?.extractor?.reddit?.['client-id'];
+      if (cid) {
+        document.getElementById('reddit-client-id').value = cid;
+        const s = document.getElementById('reddit-client-id-status');
+        s.className = 'auth-status active-auth';
+        s.textContent = `✓ client-id is set`;
+      }
+    } catch {}
+  } else {
+    status.textContent = `Could not read config: ${result.error}`;
+    status.style.color = 'var(--red)';
+  }
+}
+
+async function saveGdlConfig() {
+  const content = document.getElementById('gdl-config-editor').value.trim();
+  const status = document.getElementById('gdl-config-status');
+  if (!content) return;
+  const result = await window.api.writeGdlConfig(content);
+  if (result.ok) {
+    status.textContent = `✓ Saved to ${result.path}`;
+    status.style.color = 'var(--green)';
+    showToast('Config saved', 'success');
+  } else {
+    status.textContent = `✗ ${result.error}`;
+    status.style.color = 'var(--red)';
+    showToast('Invalid JSON — not saved', 'error');
+  }
+}
+
+// ── Auth tab switching ────────────────────────────────────────────────────────
+function switchAuthTab(name, el) {
+  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`auth-${name}`).classList.add('active');
+  el.classList.add('active');
+}
+
+function switchCookieMethod(name, el) {
+  document.querySelectorAll('.cookie-sub').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.cookie-method-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`cookie-sub-${name}`).classList.add('active');
+  el.classList.add('active');
+}
+
+loadAuthState();
+
+// ── Options state ─────────────────────────────────────────────────────────────
+const OPTS_DEFAULTS = {
+  skipMode: '', skipN: '',
+  noPart: false, noMtime: false, noFallback: false, noDownload: false,
+  limitRate: '', chunkSize: '',
+  range: '', postRange: '', childRange: '',
+  filter: '', postFilter: '', childFilter: '',
+  tagsBlacklist: '', tagsWhitelist: '',
+  filename: '', restrictFilenames: '', windowsFilenames: false,
+  verbose: false, quiet: false, getUrls: false,
+  configFile: '', configIgnore: false,
+  retries: '', timeout: '',
+  proxy: '', xff: '',
+  ipv4: false, ipv6: false, noCert: false,
+  uaPreset: '', uaCustom: '',
+  sleep: '', sleepRequest: '', sleepExtractor: '',
+  writeMetadata: false, writeInfoJson: false, writeTags: false, mtime: '',
+  zip: false, cbz: false,
+  ugoira: '',
+  archive: '',
+  convertM4s: false,
+  continueOnFail: true,
+  autoRetry: 0,
+};
+
+let optsState = { ...OPTS_DEFAULTS };
+
+function loadOpts() {
+  try {
+    const saved = localStorage.getItem('gdl-opts');
+    if (saved) optsState = { ...OPTS_DEFAULTS, ...JSON.parse(saved) };
+  } catch {}
+  applyOptsToUI();
+}
+
+function saveOpts() {
+  // Read all UI values into optsState
+  const g = id => document.getElementById(id);
+  optsState.skipMode = g('opt-skip-mode').value;
+  optsState.skipN = g('opt-skip-n').value;
+  optsState.noPart = g('opt-no-part').classList.contains('on');
+  optsState.noMtime = g('opt-no-mtime').classList.contains('on');
+  optsState.noFallback = g('opt-no-fallback').classList.contains('on');
+  optsState.noDownload = g('opt-no-download').classList.contains('on');
+  optsState.limitRate = g('opt-limit-rate').value;
+  optsState.chunkSize = g('opt-chunk-size').value;
+  optsState.range = g('opt-range').value;
+  optsState.postRange = g('opt-post-range').value;
+  optsState.childRange = g('opt-child-range').value;
+  optsState.filter = g('opt-filter').value;
+  optsState.postFilter = g('opt-post-filter').value;
+  optsState.childFilter = g('opt-child-filter').value;
+  optsState.tagsBlacklist = g('opt-tags-blacklist').value;
+  optsState.tagsWhitelist = g('opt-tags-whitelist').value;
+  optsState.filename = g('opt-filename').value;
+  optsState.restrictFilenames = g('opt-restrict-filenames').value;
+  optsState.windowsFilenames = g('opt-windows-filenames').classList.contains('on');
+  optsState.verbose = g('opt-verbose').classList.contains('on');
+  optsState.quiet = g('opt-quiet').classList.contains('on');
+  optsState.getUrls = g('opt-get-urls').classList.contains('on');
+  optsState.configFile = g('opt-config-file').value;
+  optsState.configIgnore = g('opt-config-ignore').classList.contains('on');
+  optsState.retries = g('opt-retries').value;
+  optsState.timeout = g('opt-timeout').value;
+  optsState.proxy = g('opt-proxy').value;
+  optsState.xff = g('opt-xff').value;
+  optsState.ipv4 = g('opt-ipv4').classList.contains('on');
+  optsState.ipv6 = g('opt-ipv6').classList.contains('on');
+  optsState.noCert = g('opt-no-cert').classList.contains('on');
+  optsState.uaPreset = g('opt-ua-preset').value;
+  optsState.uaCustom = g('opt-ua-custom').value;
+  optsState.sleep = g('opt-sleep').value;
+  optsState.sleepRequest = g('opt-sleep-request').value;
+  optsState.sleepExtractor = g('opt-sleep-extractor').value;
+  optsState.writeMetadata = g('opt-write-metadata').classList.contains('on');
+  optsState.writeInfoJson = g('opt-write-info-json').classList.contains('on');
+  optsState.writeTags = g('opt-write-tags').classList.contains('on');
+  optsState.mtime = g('opt-mtime').value;
+  optsState.zip = g('opt-zip').classList.contains('on');
+  optsState.cbz = g('opt-cbz').classList.contains('on');
+  optsState.ugoira = g('opt-ugoira').value;
+  optsState.archive = g('opt-archive').value;
+  optsState.convertM4s = g('opt-convert-m4s').classList.contains('on');
+  optsState.continueOnFail = g('opt-continue-on-fail').classList.contains('on');
+  optsState.autoRetry = g('opt-auto-retry').value;
+
+  // Show/hide conditional rows
+  const showAbortRow = optsState.skipMode === 'abort' || optsState.skipMode === 'terminate';
+  g('opt-skip-abort-row').style.display = showAbortRow ? 'flex' : 'none';
+  g('opt-ua-custom-row').style.display = optsState.uaPreset === 'custom' ? 'flex' : 'none';
+
+  localStorage.setItem('gdl-opts', JSON.stringify(optsState));
+  updateOptsPreview();
+}
+
+function applyOptsToUI() {
+  const g = id => document.getElementById(id);
+  const setToggle = (id, val) => {
+    const el = g(id);
+    if (val) el.classList.add('on'); else el.classList.remove('on');
+  };
+  g('opt-skip-mode').value = optsState.skipMode || '';
+  g('opt-skip-n').value = optsState.skipN || '';
+  setToggle('opt-no-part', optsState.noPart);
+  setToggle('opt-no-mtime', optsState.noMtime);
+  setToggle('opt-no-fallback', optsState.noFallback);
+  setToggle('opt-no-download', optsState.noDownload);
+  g('opt-limit-rate').value = optsState.limitRate || '';
+  g('opt-chunk-size').value = optsState.chunkSize || '';
+  g('opt-range').value = optsState.range || '';
+  g('opt-post-range').value = optsState.postRange || '';
+  g('opt-child-range').value = optsState.childRange || '';
+  g('opt-filter').value = optsState.filter || '';
+  g('opt-post-filter').value = optsState.postFilter || '';
+  g('opt-child-filter').value = optsState.childFilter || '';
+  g('opt-tags-blacklist').value = optsState.tagsBlacklist || '';
+  g('opt-tags-whitelist').value = optsState.tagsWhitelist || '';
+  g('opt-filename').value = optsState.filename || '';
+  g('opt-restrict-filenames').value = optsState.restrictFilenames || '';
+  setToggle('opt-windows-filenames', optsState.windowsFilenames);
+  setToggle('opt-verbose', optsState.verbose);
+  setToggle('opt-quiet', optsState.quiet);
+  setToggle('opt-get-urls', optsState.getUrls);
+  g('opt-config-file').value = optsState.configFile || '';
+  setToggle('opt-config-ignore', optsState.configIgnore);
+  g('opt-retries').value = optsState.retries || '';
+  g('opt-timeout').value = optsState.timeout || '';
+  g('opt-proxy').value = optsState.proxy || '';
+  g('opt-xff').value = optsState.xff || '';
+  setToggle('opt-ipv4', optsState.ipv4);
+  setToggle('opt-ipv6', optsState.ipv6);
+  setToggle('opt-no-cert', optsState.noCert);
+  g('opt-ua-preset').value = optsState.uaPreset || '';
+  g('opt-ua-custom').value = optsState.uaCustom || '';
+  g('opt-sleep').value = optsState.sleep || '';
+  g('opt-sleep-request').value = optsState.sleepRequest || '';
+  g('opt-sleep-extractor').value = optsState.sleepExtractor || '';
+  setToggle('opt-write-metadata', optsState.writeMetadata);
+  setToggle('opt-write-info-json', optsState.writeInfoJson);
+  setToggle('opt-write-tags', optsState.writeTags);
+  g('opt-mtime').value = optsState.mtime || '';
+  setToggle('opt-zip', optsState.zip);
+  setToggle('opt-cbz', optsState.cbz);
+  g('opt-ugoira').value = optsState.ugoira || '';
+  g('opt-archive').value = optsState.archive || '';
+  setToggle('opt-convert-m4s', optsState.convertM4s);
+  setToggle('opt-continue-on-fail', optsState.continueOnFail !== false);
+  g('opt-auto-retry').value = optsState.autoRetry || 0;
+
+  // Conditional rows
+  const showAbortRow = optsState.skipMode === 'abort' || optsState.skipMode === 'terminate';
+  g('opt-skip-abort-row').style.display = showAbortRow ? 'flex' : 'none';
+  g('opt-ua-custom-row').style.display = optsState.uaPreset === 'custom' ? 'flex' : 'none';
+
+  updateOptsPreview();
+}
+
+function getOptionsFlags() {
+  const o = optsState;
+  const flags = [];
+
+  // Skip
+  if (o.skipMode === '--no-skip') flags.push('--no-skip');
+  else if (o.skipMode === 'abort') flags.push(`-o "skip=abort:${o.skipN || 5}"`);
+  else if (o.skipMode === 'terminate') flags.push(`-o "skip=terminate:${o.skipN || 5}"`);
+
+  // File handling
+  if (o.noPart)     flags.push('--no-part');
+  if (o.noMtime)    flags.push('--no-mtime');
+  if (o.noFallback) flags.push('-o "fallback=false"');
+  if (o.noDownload) flags.push('--no-download');
+
+  // Rate
+  if (o.limitRate)  flags.push(`-r ${o.limitRate}`);
+  if (o.chunkSize)  flags.push(`--chunk-size ${o.chunkSize}`);
+
+  // Ranges
+  if (o.range)      flags.push(`--range "${o.range}"`);
+  if (o.postRange)  flags.push(`--post-range "${o.postRange}"`);
+  if (o.childRange) flags.push(`--child-range "${o.childRange}"`);
+
+  // Filters
+  if (o.filter)       flags.push(`--filter "${o.filter.replace(/"/g,"'")}"`);
+  if (o.postFilter)   flags.push(`--post-filter "${o.postFilter.replace(/"/g,"'")}"`);
+  if (o.childFilter)  flags.push(`--child-filter "${o.childFilter.replace(/"/g,"'")}"`);
+  if (o.tagsBlacklist)  flags.push(`--tags-blacklist "${o.tagsBlacklist}"`);
+  if (o.tagsWhitelist)  flags.push(`--tags-whitelist "${o.tagsWhitelist}"`);
+
+  // Output
+  if (o.filename)          flags.push(`-f "${o.filename}"`);
+  if (o.restrictFilenames) flags.push(`--restrict-filenames ${o.restrictFilenames}`);
+  if (o.windowsFilenames)  flags.push('--windows-filenames');
+  if (o.verbose)   flags.push('-v');
+  if (o.quiet)     flags.push('-q');
+  if (o.getUrls)   flags.push('-g');
+  if (o.configFile)   flags.push(`-c "${o.configFile}"`);
+  if (o.configIgnore) flags.push('--config-ignore');
+
+  // Network
+  if (o.retries !== '') flags.push(`-R ${o.retries}`);
+  if (o.timeout !== '') flags.push(`--http-timeout ${o.timeout}`);
+  if (o.proxy)    flags.push(`--proxy "${o.proxy}"`);
+  if (o.xff)      flags.push(`--xff ${o.xff}`);
+  if (o.ipv4)     flags.push('-4');
+  if (o.ipv6)     flags.push('-6');
+  if (o.noCert)   flags.push('--no-check-certificate');
+
+  // User-agent
+  if (o.uaPreset === 'custom' && o.uaCustom) flags.push(`-a "${o.uaCustom}"`);
+  else if (o.uaPreset && o.uaPreset !== 'custom') flags.push(`-a ${o.uaPreset}`);
+
+  // Sleep
+  if (o.sleep)           flags.push(`--sleep ${o.sleep}`);
+  if (o.sleepRequest)    flags.push(`--sleep-request ${o.sleepRequest}`);
+  if (o.sleepExtractor)  flags.push(`--sleep-extractor ${o.sleepExtractor}`);
+
+  // Post-processing
+  if (o.writeMetadata) flags.push('--write-metadata');
+  if (o.writeInfoJson) flags.push('--write-info-json');
+  if (o.writeTags)     flags.push('--write-tags');
+  if (o.mtime)         flags.push(`--mtime ${o.mtime}`);
+  if (o.zip)           flags.push('--zip');
+  if (o.cbz)           flags.push('--cbz');
+  if (o.ugoira)        flags.push(`--ugoira ${o.ugoira}`);
+
+  // Archive
+  if (o.archive) flags.push(`--download-archive "${o.archive}"`);
+
+  return flags.join(' ');
+}
+
+function updateOptsPreview() {
+  const flags = getOptionsFlags();
+  const el = document.getElementById('opts-preview-text');
+  el.textContent = flags || 'No options set';
+  el.style.color = flags ? 'var(--cyan)' : 'var(--muted)';
+}
+
+function resetOpts() {
+  optsState = { ...OPTS_DEFAULTS };
+  localStorage.removeItem('gdl-opts');
+  applyOptsToUI();
+  showToast('Options reset');
+}
+
+function toggleOpt(el) {
+  el.classList.toggle('on');
+  saveOpts();
+}
+
+function switchOptsSection(name, el) {
+  document.querySelectorAll('.opts-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.opts-nav').forEach(n => n.classList.remove('active'));
+  document.getElementById(`opts-${name}`).classList.add('active');
+  el.classList.add('active');
+}
+
+function applyUAPreset() {
+  const val = document.getElementById('opt-ua-preset').value;
+  document.getElementById('opt-ua-custom-row').style.display = val === 'custom' ? 'flex' : 'none';
+  saveOpts();
+}
+
+async function pickOptConfigFile() {
+  const file = await window.api.pickFile();
+  if (file) { document.getElementById('opt-config-file').value = file; saveOpts(); }
+}
+
+async function pickArchiveFile() {
+  const { dialog } = require && require('electron') ? require('electron') : {};
+  const file = await window.api.pickFileSave('sqlite3');
+  if (file) { document.getElementById('opt-archive').value = file; saveOpts(); }
+}
+
+async function openArchiveDir() {
+  const p = document.getElementById('opt-archive').value.trim();
+  if (p) {
+    const dir = p.replace(/[/\\][^/\\]+$/, '') || p;
+    await window.api.openFolder(dir);
+  }
+}
+
+loadOpts();
+
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `show ${type === 'success' ? 'success' : type === 'error' ? 'error-t' : ''}`;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 2500);
+}
+
+// Keyboard shortcut: Enter in URL textarea adds to queue, Ctrl+Enter starts
+document.getElementById('url-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    startDownload();
+  }
+});
+</script>
+</body>
+</html>
