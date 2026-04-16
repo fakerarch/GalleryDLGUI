@@ -80,8 +80,21 @@ npm install
 success "Dependencies ready"
 echo ""
 
-# ── 3. Launch the app ─────────────────────────────────────────
+# ── 3. Launch the app (detached — terminal will close) ────────
 
 info "Launching gallery-dl GUI..."
 echo ""
-npm start
+
+# Launch Electron detached from this terminal session so the
+# window survives after the terminal closes.
+nohup ./node_modules/.bin/electron . >/dev/null 2>&1 &
+disown
+
+# Brief pause to let Electron initialise before we exit
+sleep 1
+
+success "App launched — closing terminal."
+echo ""
+
+# Close the terminal by killing the parent shell process
+kill $PPID 2>/dev/null || true
