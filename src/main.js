@@ -315,6 +315,107 @@ ipcMain.handle('check-ffmpeg', () => {
   });
 });
 
+ipcMain.handle('check-ytdlp', () => {
+  return new Promise((resolve) => {
+    const p = spawn('yt-dlp', ['--version']);
+    p.on('close', code => resolve(code === 0));
+    p.on('error', () => resolve(false));
+  });
+});
+
+// ── Dependency installers ─────────────────────────────────────────────────────
+
+function sendInstallProgress(text, type = 'info') {
+  if (mainWindow) mainWindow.webContents.send('install-progress', { text, type });
+}
+
+ipcMain.handle('install-ytdlp', async () => {
+  const binDir  = path.join(os.homedir(), '.local', 'bin');
+  const binPath = path.join(binDir, 'yt-dlp');
+  const url     = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+
+  try { fs.mkdirSync(binDir, { recursive: true }); } catch {}
+
+  sendInstallProgress('Downloading yt-dlp from GitHub releases...');
+
+  return new Promise((resolve) => {
+    const curl = spawn('curl', ['-L', '--progress-bar', url, '-o', binPath], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    curl.stdout.on('data', d => sendInstallProgress(d.toString().trim()));
+    curl.stderr.on('data', d => sendInstallProgress(d.toString().trim()));
+
+    curl.on('close', (code) => {
+      if (code === 0) {
+        try { fs.chmodSync(binPath, 0o755); } catch {}
+        sendInstallProgress(`✓ yt-dlp installed to ${binPath}`, 'success');
+        resolve({ ok: true });
+      } else {
+        sendInstallProgress('✗ Download failed — check your internet connection.', 'error');
+        resolve({ ok: false });
+      }
+    });
+
+    curl.on('error', (err) => {
+      sendInstallProgress(`✗ ${err.message}`, 'error');
+      resolve({ ok: false });
+    });
+  });
+});
+
+ipcMain.handle('install-ffmpeg', async () => {
+  // Detect available package manager
+  const managers = [
+    { bin: 'apt-get', args: ['apt-get', 'install', '-y', 'ffmpeg'] },
+    { bin: 'dnf',     args: ['dnf',     'install', '-y', 'ffmpeg'] },
+    { bin: 'pacman',  args: ['pacman',  '-S', '--noconfirm', 'ffmpeg'] },
+    { bin: 'zypper',  args: ['zypper',  'install', '-y', 'ffmpeg'] },
+  ];
+
+  let pm = null;
+  for (const m of managers) {
+    const found = await new Promise(r => {
+      const p = spawn('which', [m.bin]);
+      p.on('close', code => r(code === 0));
+      p.on('error', () => r(false));
+    });
+    if (found) { pm = m; break; }
+  }
+
+  if (!pm) {
+    sendInstallProgress('✗ No supported package manager found (apt-get, dnf, pacman, zypper).', 'error');
+    sendInstallProgress('Install ffmpeg manually from https://ffmpeg.org/download.html', 'info');
+    return { ok: false };
+  }
+
+  sendInstallProgress(`Installing ffmpeg via ${pm.bin} — a password prompt may appear...`);
+
+  return new Promise((resolve) => {
+    // pkexec shows a native graphical sudo dialog
+    const proc = spawn('pkexec', pm.args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    proc.stdout.on('data', d => sendInstallProgress(d.toString().trim()));
+    proc.stderr.on('data', d => sendInstallProgress(d.toString().trim()));
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        sendInstallProgress('✓ ffmpeg installed successfully.', 'success');
+        resolve({ ok: true });
+      } else if (code === 126) {
+        sendInstallProgress('✗ Password entry was cancelled.', 'error');
+        resolve({ ok: false });
+      } else {
+        sendInstallProgress(`✗ Installation failed (exit code ${code}).`, 'error');
+        resolve({ ok: false });
+      }
+    });
+
+    proc.on('error', (err) => {
+      sendInstallProgress(`✗ ${err.message}`, 'error');
+      resolve({ ok: false });
+    });
+  });
+});
+
 ipcMain.handle('convert-files', async (_, dir) => {
   await convertM4sFiles(dir, mainWindow);
 });

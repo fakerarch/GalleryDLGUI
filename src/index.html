@@ -894,6 +894,23 @@
     padding: 6px 0;
   }
 
+  /* Dependency install button */
+  .dep-install-btn {
+    padding: 4px 12px;
+    font-size: 11.5px;
+    font-family: var(--sans);
+    font-weight: 600;
+    border-radius: 5px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .dep-install-btn:hover { background: rgba(29,158,240,0.1); }
+  .dep-install-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
   /* Scrollbars */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -977,7 +994,8 @@
     </div>
     <div class="sidebar-footer">
       v1.0.0<br>
-      <span id="gdl-version">gallery-dl</span>
+      <span id="gdl-version">gallery-dl</span><br>
+      <span id="ytdlp-footer">yt-dlp</span>
     </div>
   </div>
 
@@ -1362,13 +1380,35 @@
               <div class="opt-group-title">Video conversion</div>
               <div class="opt-row">
                 <div class="opt-label">
-                  <strong>Auto-convert .m4s → .mp4 / rename .m4v → .mp4</strong>
-                  <span>After download: remux .m4s files via FFmpeg (no re-encode) and rename .m4v files to .mp4. Both run automatically.</span>
+                  <strong>FFmpeg</strong>
+                  <span>Required for .m4s → .mp4 remuxing. Also enables the auto-convert toggle below.</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
                   <span id="ffmpeg-status" style="font-size:11px;font-family:var(--mono);color:var(--muted);">checking...</span>
-                  <div class="toggle" id="opt-convert-m4s" onclick="toggleOpt(this)"></div>
+                  <button id="ffmpeg-install-btn" class="dep-install-btn" onclick="installDep('ffmpeg')" style="display:none;">Install</button>
                 </div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label">
+                  <strong>Auto-convert .m4s → .mp4 / rename .m4v → .mp4</strong>
+                  <span>After download: remux .m4s files via FFmpeg (no re-encode) and rename .m4v files to .mp4.</span>
+                </div>
+                <div class="toggle" id="opt-convert-m4s" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label">
+                  <strong>yt-dlp</strong>
+                  <span>Required for videos from Reddit, Twitter/X, and other sites that use video hosting.</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span id="ytdlp-status" style="font-size:11px;font-family:var(--mono);color:var(--muted);">checking...</span>
+                  <button id="ytdlp-install-btn" class="dep-install-btn" onclick="installDep('ytdlp')" style="display:none;">Install</button>
+                </div>
+              </div>
+              <!-- Install progress box -->
+              <div id="dep-install-progress" style="display:none;padding:10px 14px;background:var(--bg2);border-top:1px solid var(--border);">
+                <div style="font-size:10px;font-weight:700;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Install output</div>
+                <div id="dep-install-log" style="font-family:var(--mono);font-size:11.5px;line-height:1.6;color:#9ab0c4;max-height:120px;overflow-y:auto;"></div>
               </div>
             </div>
 
@@ -1709,16 +1749,33 @@ async function init() {
   renderPresetSelect();
   renderPresetsPage();
 
-  // Check FFmpeg availability for m4s conversion
+  // Check FFmpeg
   const hasFfmpeg = await window.api.checkFfmpeg();
-  const statusEl = document.getElementById('ffmpeg-status');
-  if (statusEl) {
-    statusEl.textContent = hasFfmpeg ? '✓ ffmpeg found' : '✗ ffmpeg not found';
-    statusEl.style.color = hasFfmpeg ? 'var(--green)' : 'var(--red)';
-    if (!hasFfmpeg) {
-      document.getElementById('opt-convert-m4s').style.opacity = '0.4';
-      document.getElementById('opt-convert-m4s').style.pointerEvents = 'none';
-    }
+  const ffmpegEl  = document.getElementById('ffmpeg-status');
+  const ffmpegBtn = document.getElementById('ffmpeg-install-btn');
+  if (ffmpegEl) {
+    ffmpegEl.textContent = hasFfmpeg ? '✓ found' : '✗ not found';
+    ffmpegEl.style.color = hasFfmpeg ? 'var(--green)' : 'var(--red)';
+  }
+  if (ffmpegBtn) ffmpegBtn.style.display = hasFfmpeg ? 'none' : 'inline-flex';
+  if (!hasFfmpeg) {
+    document.getElementById('opt-convert-m4s').style.opacity = '0.4';
+    document.getElementById('opt-convert-m4s').style.pointerEvents = 'none';
+  }
+
+  // Check yt-dlp
+  const hasYtDlp     = await window.api.checkYtDlp();
+  const ytdlpOptEl   = document.getElementById('ytdlp-status');
+  const ytdlpBtn     = document.getElementById('ytdlp-install-btn');
+  const ytdlpFooter  = document.getElementById('ytdlp-footer');
+  if (ytdlpOptEl) {
+    ytdlpOptEl.textContent = hasYtDlp ? '✓ found' : '✗ not found';
+    ytdlpOptEl.style.color = hasYtDlp ? 'var(--green)' : 'var(--yellow)';
+  }
+  if (ytdlpBtn) ytdlpBtn.style.display = hasYtDlp ? 'none' : 'inline-flex';
+  if (ytdlpFooter) {
+    ytdlpFooter.textContent = hasYtDlp ? 'yt-dlp ✓' : 'yt-dlp ✗';
+    ytdlpFooter.style.color = hasYtDlp ? 'var(--green)' : 'var(--yellow)';
   }
 }
 init();
@@ -1985,6 +2042,56 @@ function logLine(text, type) {
 
 function clearLog() {
   document.getElementById('log-output').innerHTML = '<span class="log-empty">Waiting for download...</span>';
+}
+
+// ── Dependency installer ──────────────────────────────────────────────────────
+async function installDep(tool) {
+  const btn       = document.getElementById(`${tool}-install-btn`);
+  const statusEl  = document.getElementById(`${tool}-status`);
+  const progressBox = document.getElementById('dep-install-progress');
+  const logEl     = document.getElementById('dep-install-log');
+
+  btn.disabled    = true;
+  btn.textContent = 'Installing...';
+  progressBox.style.display = 'block';
+  logEl.innerHTML = '';
+
+  const addLine = (text, type) => {
+    const line = document.createElement('div');
+    line.textContent = text;
+    if (type === 'success') line.style.color = 'var(--green)';
+    else if (type === 'error') line.style.color = 'var(--red)';
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+
+  window.api.removeInstallListeners();
+  window.api.onInstallProgress(({ text, type }) => { if (text) addLine(text, type); });
+
+  const result = tool === 'ffmpeg'
+    ? await window.api.installFfmpeg()
+    : await window.api.installYtDlp();
+
+  window.api.removeInstallListeners();
+
+  if (result.ok) {
+    statusEl.textContent = '✓ found';
+    statusEl.style.color = 'var(--green)';
+    btn.style.display = 'none';
+    // Update footer too
+    const footerEl = document.getElementById(`${tool === 'ffmpeg' ? 'ffmpeg' : 'ytdlp'}-footer`);
+    if (footerEl) { footerEl.textContent = `${tool} ✓`; footerEl.style.color = 'var(--green)'; }
+    // Re-enable m4s toggle if ffmpeg just got installed
+    if (tool === 'ffmpeg') {
+      document.getElementById('opt-convert-m4s').style.opacity = '';
+      document.getElementById('opt-convert-m4s').style.pointerEvents = '';
+    }
+    showToast(`${tool} installed successfully`, 'success');
+  } else {
+    btn.disabled    = false;
+    btn.textContent = 'Retry';
+    showToast(`${tool} installation failed — see output above`, 'error');
+  }
 }
 
 function logOpenFolderBtn(dir) {
