@@ -66,7 +66,8 @@ pip install gallery-dl
 
 ```bash
 git clone https://github.com/Jeremoe0312/GalleryDLGUI.git
-cd gallery-dl-gui
+cd GalleryDLGUI
+chmod +x setup.sh
 ./setup.sh
 ```
 
@@ -76,7 +77,7 @@ To update later:
 
 ```bash
 git pull
-./setup.sh
+./setup.sh   # chmod +x only needed once after first clone
 ```
 
 **Manual setup** (if you already have Node.js v18+):

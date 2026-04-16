@@ -1776,7 +1776,7 @@ function renderQueue() {
     <div class="queue-item ${item.status}" data-id="${item.id}">
       <div class="q-status"></div>
       <div class="q-url" title="${item.url}">${item.url}</div>
-      ${item.status === 'pending' ? `<button class="q-remove" onclick="removeFromQueue('${item.id}')">✕</button>` : ''}
+      ${item.status !== 'running' ? `<button class="q-remove" onclick="removeFromQueue('${item.id}')">✕</button>` : ''}
     </div>
   `).join('');
 }
@@ -1890,6 +1890,8 @@ async function startDownload() {
     setStatus(`${doneCount} done, ${errorCount} failed`, 'error');
   }
 
+  if (outputDir) logOpenFolderBtn(outputDir);
+
   isRunning = false;
   setRunningState(false);
   renderQueue();
@@ -1981,6 +1983,35 @@ function logLine(text, type) {
 
 function clearLog() {
   document.getElementById('log-output').innerHTML = '<span class="log-empty">Waiting for download...</span>';
+}
+
+function logOpenFolderBtn(dir) {
+  const log = document.getElementById('log-output');
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'margin-top:10px;';
+  const btn = document.createElement('button');
+  btn.textContent = '📂  Open Download Folder';
+  btn.style.cssText = [
+    'display:inline-flex',
+    'align-items:center',
+    'gap:6px',
+    'padding:7px 16px',
+    'background:transparent',
+    'border:1px solid var(--accent)',
+    'border-radius:7px',
+    'color:var(--accent)',
+    'font-family:var(--sans)',
+    'font-size:13px',
+    'font-weight:600',
+    'cursor:pointer',
+    'transition:background 0.15s,color 0.15s',
+  ].join(';');
+  btn.onmouseenter = () => { btn.style.background = 'rgba(124,106,247,0.12)'; btn.style.color = 'var(--text)'; };
+  btn.onmouseleave = () => { btn.style.background = 'transparent'; btn.style.color = 'var(--accent)'; };
+  btn.onclick = () => window.api.openFolder(dir);
+  wrap.appendChild(btn);
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
 }
 
 // ── Folder controls ───────────────────────────────────────────────────────────
