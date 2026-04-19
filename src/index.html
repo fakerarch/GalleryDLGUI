@@ -993,7 +993,7 @@
       Presets
     </div>
     <div class="sidebar-footer">
-      v1.0.0<br>
+      v1.0.2<br>
       <span id="gdl-version">gallery-dl</span><br>
       <span id="ytdlp-footer">yt-dlp</span>
     </div>
@@ -1394,6 +1394,20 @@
                   <span>After download: remux .m4s files via FFmpeg (no re-encode) and rename .m4v files to .mp4.</span>
                 </div>
                 <div class="toggle" id="opt-convert-m4s" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label">
+                  <strong>Flatten into single folder</strong>
+                  <span>Put all files directly in the output folder — no subfolders per site (e.g. keeps Reddit + Redgifs together).</span>
+                </div>
+                <div class="toggle" id="opt-flat-dir" onclick="toggleOpt(this)"></div>
+              </div>
+              <div class="opt-row">
+                <div class="opt-label">
+                  <strong>One subfolder per queued URL</strong>
+                  <span>Each queued URL downloads into its own subfolder named after the user/channel (e.g. <code>output/johndoe/</code>).</span>
+                </div>
+                <div class="toggle" id="opt-per-url-folder" onclick="toggleOpt(this)"></div>
               </div>
               <div class="opt-row">
                 <div class="opt-label">
@@ -1903,7 +1917,16 @@ async function startDownload() {
       item.status = 'running';
       renderQueue();
 
-      lastCode = await runSingleDownload(item.url, flags, outputDir);
+      // Per-URL subfolder: append a derived folder name to the output dir
+      let itemDir = outputDir;
+      if (optsState.perUrlFolder && outputDir) {
+        const folderName = urlToFolderName(item.url);
+        const sep = outputDir.includes('\\') ? '\\' : '/';
+        itemDir = outputDir.replace(/[/\\]$/, '') + sep + folderName;
+        if (attempt === 0) logLine(`  📁 → ${itemDir}`, 'info');
+      }
+
+      lastCode = await runSingleDownload(item.url, flags, itemDir);
 
       if (lastCode === 0 || lastCode === null) break; // success — no retry needed
       attempt++;
@@ -1995,6 +2018,33 @@ function runSingleDownload(url, flags, outputDir) {
 
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
+}
+
+// Derive a sensible folder name from a URL for the per-URL subfolder feature.
+// Prefers the username/channel segment for common social/media URLs,
+// falls back to the last meaningful path segment, then the hostname.
+function urlToFolderName(url) {
+  try {
+    const u = new URL(url.trim());
+    const parts = u.pathname.split('/').filter(Boolean);
+
+    // Match /user/NAME, /u/NAME, /users/NAME, /channel/NAME, /c/NAME, /profile/NAME
+    const parentSegments = ['user', 'u', 'users', 'channel', 'c', 'profile', 'people'];
+    const parentIdx = parts.findIndex(p => parentSegments.includes(p.toLowerCase()));
+    if (parentIdx !== -1 && parts[parentIdx + 1]) {
+      return parts[parentIdx + 1].replace(/[<>:"/\\|?*]+/g, '_');
+    }
+
+    // Last non-empty path segment
+    if (parts.length) {
+      return parts[parts.length - 1].replace(/[<>:"/\\|?*]+/g, '_');
+    }
+
+    // Fallback: hostname without www.
+    return u.hostname.replace(/^www\./, '').replace(/[<>:"/\\|?*]+/g, '_');
+  } catch {
+    return 'download';
+  }
 }
 
 async function stopDownload() {
@@ -2484,6 +2534,8 @@ const OPTS_DEFAULTS = {
   ugoira: '',
   archive: '',
   convertM4s: false,
+  flatDir: false,
+  perUrlFolder: false,
   continueOnFail: true,
   autoRetry: 0,
 };
@@ -2546,6 +2598,8 @@ function saveOpts() {
   optsState.ugoira = g('opt-ugoira').value;
   optsState.archive = g('opt-archive').value;
   optsState.convertM4s = g('opt-convert-m4s').classList.contains('on');
+  optsState.flatDir = g('opt-flat-dir').classList.contains('on');
+  optsState.perUrlFolder = g('opt-per-url-folder').classList.contains('on');
   optsState.continueOnFail = g('opt-continue-on-fail').classList.contains('on');
   optsState.autoRetry = g('opt-auto-retry').value;
 
@@ -2609,6 +2663,8 @@ function applyOptsToUI() {
   g('opt-ugoira').value = optsState.ugoira || '';
   g('opt-archive').value = optsState.archive || '';
   setToggle('opt-convert-m4s', optsState.convertM4s);
+  setToggle('opt-flat-dir', optsState.flatDir);
+  setToggle('opt-per-url-folder', optsState.perUrlFolder);
   setToggle('opt-continue-on-fail', optsState.continueOnFail !== false);
   g('opt-auto-retry').value = optsState.autoRetry || 0;
 
@@ -2690,6 +2746,9 @@ function getOptionsFlags() {
 
   // Archive
   if (o.archive) flags.push(`--download-archive "${o.archive}"`);
+
+  // Flatten all extractor subdirectories into the output folder
+  if (o.flatDir) flags.push('-o "directory=[]"');
 
   return flags.join(' ');
 }

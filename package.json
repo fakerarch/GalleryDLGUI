@@ -1,6 +1,6 @@
 {
   "name": "gallery-dl-gui",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A GUI frontend for gallery-dl",
   "main": "src/main.js",
   "scripts": {
